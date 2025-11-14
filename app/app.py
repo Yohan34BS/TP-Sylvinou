@@ -1,29 +1,38 @@
 from flask import Flask, jsonify
-import os
 import pymysql
+import os
 
 app = Flask(__name__)
 
-DB_HOST = os.environ.get("DB_HOST", "db")
-DB_USER = os.environ.get("DB_USER", "appuser")
-DB_PASS = os.environ.get("DB_PASS", "apppass")
-DB_NAME = os.environ.get("DB_NAME", "appdb")
+def get_db_connection():
+    return pymysql.connect(
+        host=os.getenv('DB_HOST'),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        database=os.getenv('DB_NAME'),
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
+    )
 
-@app.route("/")
-def index():
-    return "Hello from app!"
+@app.route('/')
+def home():
+    return "<h1>Bienvenue Sylvain !</h1><p></p>"
 
-@app.route("/health")
-def health():
+@app.route('/data')
+def get_data():
     try:
-        conn = pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME, connect_timeout=3)
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-        cur.close()
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT DATABASE() as db, USER() as user")
+            result = cursor.fetchone()
         conn.close()
-        return jsonify(status="ok", db="reachable")
+        return jsonify({
+            "status": "success",
+            "database": result['db'],
+            "connected_as": result['user']
+        })
     except Exception as e:
-        return jsonify(status="error", error=str(e)), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)

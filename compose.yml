@@ -1,0 +1,52 @@
+networks:
+  frontend_net:
+    driver: bridge
+  backend_net:
+    driver: bridge
+    internal: true  # Réseau interne : inaccessible depuis l'hôte
+
+services:
+  db:
+    image: mariadb:10.11
+    container_name: mariadb_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: myapp
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppassword
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - backend_net
+    # Pas de ports exposés → inaccessible depuis l'hôte
+
+  app:
+    build: ./app
+    container_name: flask_app
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_USER: appuser
+      DB_PASSWORD: apppassword
+      DB_NAME: myapp
+    depends_on:
+      - db
+    networks:
+      - backend_net
+    # Pas de ports → inaccessible directement
+
+  proxy:
+    build: ./proxy
+    container_name: nginx_proxy
+    restart: unless-stopped
+    ports:
+      - "8080:80"  # Accessible depuis l'hôte sur http://localhost:8080
+    depends_on:
+      - app
+    networks:
+      - frontend_net
+      - backend_net
+
+volumes:
+  db_data:
